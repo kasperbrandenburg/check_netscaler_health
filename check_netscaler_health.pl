@@ -49,6 +49,9 @@
 # version 0.2.1: - On 1 of 2 Citrix NetScaler devices had issue where max_msg_size
 #	 	greater than 1500 caused error, other NS worked fine with 5000.
 #		"ERROR: No response from remote host "X.X.X.X" : UNKNOWN"
+# version 1.0.0: - NS12 OID changed. This version it not backwards compatible.
+#		Removed deprecated voltage checks and added new AuxiliaryVoltage checks.
+#		Updated thresholds for CPU voltage.
 #
 # ============================================================================
 # ============================== LICENCE =====================================
@@ -106,8 +109,8 @@ my @citrix_ssl_engine_state_text	= ("down","up");
 # ============================== GLOBAL VARIABLES ============================
 # ============================================================================
 
-my $Version			= '0.2.1';		# Version number of this script
-my $Ver_date		= "1/7/2013";	# Version Date of this script
+my $Version			= '1.0.0';		# Version number of this script
+my $Ver_date		= "2/8/2019";	# Version Date of this script
 my $o_host			= undef;	 	# Hostname
 my $o_community 	= undef; 		# Community
 my $o_port	 		= 161; 			# Port
@@ -491,35 +494,6 @@ if ($o_check_type eq "citrix") {
 	verb("+12V Check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
 					}
 
-					# Measures the -5V power supply in millivolt. Reference Value -5500 - -4500 mv.
-					if ($reported_counter_name =~ /\-5.0VSupplyVoltage/ )
-					{	$using_voltage_threshold = 1;
-						if (($reported_counter_value > -5500 ) && ($reported_counter_value < -4500))
-						{$num_voltage_ok++}
-						else
-						{	if ($voltage_output ne "") {$voltage_output.=", ";}
-							$voltage_output.= "(" .$reported_counter_name.": "; 
-							$voltage_output.= $reported_counter_value." mV)";
-							$final_status = 2;
-						}
-					$perf_outtmp.= $reported_counter_name."=".($reported_counter_value/1000).", ";						
-	verb("-5V Check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
-					}
-
-					# Measures the -12V power supply in millivolt. Reference Value -13200 - -10800 mv.
-					if ($reported_counter_name =~ /\-12.0VSupplyVoltage/ )
-					{	$using_voltage_threshold = 1;
-						if (($reported_counter_value > -13200 ) && ($reported_counter_value < 0))
-						{$num_voltage_ok++}
-						else
-						{	if ($voltage_output ne "") {$voltage_output.=", ";}
-							$voltage_output.= "(" .$reported_counter_name.": ".$reported_counter_value." mV)";
-							$final_status = 2;
-						}
-					$perf_outtmp.= $reported_counter_name."=".($reported_counter_value/1000).", ";						
-	verb("-12V Check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
-					}
-
 					# Measures the +3.3V main and standby power supply in millivolt. Reference Value 2970 - 3630 mv.
 					if ($reported_counter_name =~ /3.3VSupplyVoltage/ )
 					{	$using_voltage_threshold = 1;
@@ -548,10 +522,40 @@ if ($o_check_type eq "citrix") {
 	verb("+5V Standby Check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
 					}
 
-					# Measures the processor core voltage in millivolt. Reference Value 1080 - 1650 mv.
-					if ((($reported_counter_name =~ /CPU/) && ($reported_counter_name =~ /CoreVoltage/)) or ($reported_counter_name =~ /VoltageSensor/ ))
+
+					# Measures the AuxiliaryVoltage millivolt. Reference found via Observium (1010->1370)
+					if ($reported_counter_name =~ /AuxiliaryVoltage3/ || $reported_counter_name =~ /AuxiliaryVoltage2/ || $reported_counter_name =~ /AuxiliaryVoltage1/ | $reported_counter_name =~ /AuxiliaryVoltage0/)
 					{	$using_voltage_threshold = 1;
-						if (($reported_counter_value > 1040 ) && ($reported_counter_value < 5200))
+						if (($reported_counter_value > 1010 ) && ($reported_counter_value < 1370))
+						{$num_voltage_ok++}
+						else
+						{	if ($voltage_output ne "") {$voltage_output.=", ";}
+							$voltage_output.= "(" .$reported_counter_name.": ".$reported_counter_value." mV)";
+							$final_status = 2;
+						}
+					$perf_outtmp.= $reported_counter_name."=".($reported_counter_value/1000).", ";						
+	verb("AuxiliaryVoltage check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
+					}
+
+					# Measures the AuxiliaryVoltage millivolt. Reference found via Observium (1300->1760mV)
+					if ($reported_counter_name =~ /AuxiliaryVoltage4/ )
+					{	$using_voltage_threshold = 1;
+						if (($reported_counter_value > 1300 ) && ($reported_counter_value < 1760))
+						{$num_voltage_ok++}
+						else
+						{	if ($voltage_output ne "") {$voltage_output.=", ";}
+							$voltage_output.= "(" .$reported_counter_name.": ".$reported_counter_value." mV)";
+							$final_status = 2;
+						}
+					$perf_outtmp.= $reported_counter_name."=".($reported_counter_value/1000).", ";						
+	verb("AuxiliaryVoltage4 check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
+					}
+
+					# Measures the processor core voltage in millivolt. Reference Value 1080 - 1650 mv.
+					#  CPU1CoreVoltage	Sensor updated (limits): limit_high -> "2.05965", limit_low -> "1.52235"
+					if ( $reported_counter_name =~ /CPU/ && $reported_counter_name =~ /CoreVoltage/)
+					{	$using_voltage_threshold = 1;
+						if (($reported_counter_value > 1522 ) && ($reported_counter_value < 2059))
 						{$num_voltage_ok++}
 						else
 						{	if ($voltage_output ne "") {$voltage_output.=", ";}
@@ -590,21 +594,6 @@ if ($o_check_type eq "citrix") {
 					}
 				}
 
-				# Intel CPU Power check. Measures the processor core voltage in millivolt.
-				# Documentation has no reference values. Used range from processor core voltage.
-				if ($reported_counter_name =~ /IntelCPUVttPower/ )
-					{	$num_voltage++;				
-						if (($reported_counter_value > 1040 ) && ($reported_counter_value < 1650))
-						{$num_voltage_ok++}
-						else
-						{	if ($voltage_output ne "") {$voltage_output.=", "}
-							$voltage_output.= "(" .$reported_counter_name.": ".$reported_counter_value." mV)";
-							$final_status = 2;
-						}
-					$perf_outtmp.= $reported_counter_name."=".($reported_counter_value/1000).", ";						
-	verb("Intel CPU Power Check>> ".$reported_counter_name.": ".$reported_counter_value."mV, num_voltage_ok: ".$num_voltage_ok."/".$num_voltage.", Status: ".$final_status);
-					}
-
 				# Power Supply check. Values are NORMAL = 0 ; NOT PRESENT = 1 ; FAILED = 2 ; NOT SUPPORTED = 3.
 				# Tune $final_status to meet your desired Alert level 0, 1, 2 or 3.
 				if (($reported_counter_name =~ /PowerSupply/) && ($reported_counter_name =~ /FailureStatus/)) 
@@ -632,7 +621,7 @@ if ($o_check_type eq "citrix") {
 				if ($reported_counter_name =~ /Fan/ ) 
 				{	if ($reported_counter_value != 0 )
 					{	$num_fan++;
-						if (($reported_counter_value > 5000 ) && ($reported_counter_value < 15000))
+						if (($reported_counter_value > 2640 ) && ($reported_counter_value < 6120))
 						{$num_fan_ok++}
 						else
 						{	if ($fan_output ne "") {$fan_output.=", ";}
